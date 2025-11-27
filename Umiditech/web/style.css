@@ -1,0 +1,10 @@
+body{
+	background-image: url("immagini/blue_bg.jpg");
+	background-attachment: fixed;
+	background-size: cover;
+}
+h1.titolo{
+	color: #ffffff;
+	font-size: 4rem;
+	font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
