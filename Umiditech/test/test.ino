@@ -1,30 +1,31 @@
-#include <SD_MMC.h>
+#include <SD.h>
+#include <SPI.h>
 
-int i = 0;
+#define SD_CS   5
+#define SD_SCK  14
+#define SD_MISO 2
+#define SD_MOSI 15
 
-void setup(){
-  // put your setup code here, to run once:
+void setup() {
   Serial.begin(115200);
-  if(!SD_MMC.begin()){
+  delay(2000);
+
+  SPI.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS);
+
+  if (!SD.begin(SD_CS)) {
     Serial.println("Errore: SD non inizializzata!");
     return;
   }
-}
 
-void loop() {
-  // put your main code here, to run repeatedly:
-  loadJson();
-  i++;
-  delay(1000);
-}
+  Serial.println("SD inizializzata!");
 
-void loadJson(){
-  File dati = SD_MMC.open("/dati.json",FILE_WRITE);
-  if(dati){
-    dati.print("{\"counter\":");
-    dati.print(i);
-    dati.println("}");
-    dati.close();
-    Serial.println("File scritto!");
+  File f = SD.open("/test.txt", FILE_WRITE);
+  if(!f){
+    Serial.println("Impossibile aprire file");
+    return;
   }
+  f.println("Ciao!");
+  f.close();
 }
+
+void loop() {}
