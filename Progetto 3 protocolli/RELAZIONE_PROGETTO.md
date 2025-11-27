@@ -99,28 +99,25 @@ Di seguito i file principali usati nel progetto. Caricali sui rispettivi disposi
 ### 1) ESP32 — lettura joystick e invio UART
 ```arduino name=esp32_sender_complete.ino
 /*
-  esp32_sender_simplified.ino
-  Semplice: legge joystick X/Y e pulsante, invia ogni 50 ms
-  - Serial2 TX -> Arduino UNO SoftwareSerial RX (es. GPIO17 -> UNO D8)
-  - Baud: 4800
+  ESP32 - Slave (Sender)
+  - Legge joystick X/Y e pulsante, invia ogni 50 ms
+  - Invia linea CSV semplice su Serial2: "X,Y,B\n"
+  - Baud: 4800, Serial2 TX su default (GPIO17 nella maggior parte delle board)
 */
 
 const int JOY_X_PIN = 34;   // ADC1
 const int JOY_Y_PIN = 35;   // ADC1
 const int BUTTON_PIN = 32;  // digitale con INPUT_PULLUP
-const int SERIAL2_RX = 16;  // non usato qui
-const int SERIAL2_TX = 17;  // TX -> UNO RX (D8)
 
 const unsigned long SEND_INTERVAL_MS = 50; // ogni 50 ms
 unsigned long lastSend = 0;
 
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(4800, SERIAL_8N1, SERIAL2_RX, SERIAL2_TX);
+  // Serial2: baud 4800, usando i pin hardware di default (RX=16, TX=17 su molte board)
+  Serial2.begin(4800);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
-  analogSetPinAttenuation(JOY_X_PIN, ADC_11db);
-  analogSetPinAttenuation(JOY_Y_PIN, ADC_11db);
-  Serial.println("ESP32 simplified sender started (50ms, Serial2 TX=17, 4800 baud)");
+  Serial.println("ESP32 sender started (Serial2 4800 baud)");
 }
 
 int mapTo180(int raw) {
@@ -135,22 +132,20 @@ void loop() {
     int rawY = analogRead(JOY_Y_PIN);
     int angleX = mapTo180(rawX);
     int angleY = mapTo180(rawY);
-    int btn = (digitalRead(BUTTON_PIN) == LOW) ? 1 : 0;
 
-    // Format semplice: X:nn,Y:nn,B:n\n
-    Serial2.print("X:"); Serial2.print(angleX);
-    Serial2.print(",Y:"); Serial2.print(angleY);
-    Serial2.print(",B:"); Serial2.println(btn);
+    // Invia come CSV semplice: X,Y,B\n
+    Serial2.print(angleX); Serial2.print(',');
+    Serial2.print(angleY); Serial2.print(',');
 
+    // Log su USB seriale per debug
     Serial.print("Sent -> ");
-    Serial.print("X:"); Serial.print(angleX);
-    Serial.print(" Y:"); Serial.print(angleY);
-    Serial.print(" B:"); Serial.println(btn);
+    Serial.print(angleX); Serial.print(','); Serial.print(angleY);
 
     lastSend = now;
   }
   delay(1);
 }
+
 ```
 
 Spiegazione:
@@ -163,17 +158,14 @@ Spiegazione:
 ### 2) Arduino Uno (MASTER) — ricezione UART e inoltro SPI
 ```arduino name=uno_master_corrected.ino
 /*
-  uno_master_simplified.ino
-  Semplice master UNO:
-  - SoftwareSerial RX = D8 (ascolta ESP32 TX)
-  - Inoltra ogni linea ricevuta via SPI come pacchetto: 0xFF, X, Y, B
+  Arduino UNO - Master
+  - Riceve una linea tramite `Serial` contenente numeri X, Y, B
+  - Inoltra i valori via SPI come pacchetto: 0xFF, X, Y, B
   - SPI pins standard: D11 MOSI, D12 MISO, D13 SCK, SS = D10
 */
-
 #include <SoftwareSerial.h>
 #include <SPI.h>
 
-SoftwareSerial espSerial(8, 9); // RX = D8, TX = D9 (non usato)
 const int SS_PIN = 10;
 const int BUF_MAX = 100;
 char buf[BUF_MAX];
@@ -181,11 +173,21 @@ int bufPos = 0;
 
 void setup() {
   Serial.begin(115200);
-  espSerial.begin(4800);
   SPI.begin();
   pinMode(SS_PIN, OUTPUT);
   digitalWrite(SS_PIN, HIGH);
-  Serial.println("UNO master simplified started (SoftwareSerial D8, SPI master)");
+  Serial.println("UNO master simplified started (Serial RX, SPI master)");
+}
+
+void loop() {
+  while (Serial.available()) {
+    int c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      if (bufPos > 0) processBuffer();
+    } else {
+      if (bufPos < BUF_MAX-1) buf[bufPos++] = (char)c;
+    }
+  }
 }
 
 void sendSPIPacket(byte x, byte y, byte b) {
@@ -204,7 +206,7 @@ void processBuffer() {
   s.trim();
   Serial.print("RX raw: "); Serial.println(s);
 
-  // Estrai numeri dalla stringa
+  // Estrai fino a 3 numeri dalla stringa
   int vals[3] = {0,0,0};
   int vIdx = 0;
   long cur = 0;
@@ -223,26 +225,12 @@ void processBuffer() {
     }
   }
   if (inNum && vIdx < 3) vals[vIdx++] = (int)cur;
-
-  // Normalizza
   byte x = (vIdx>0) ? constrain(vals[0],0,180) : 0;
   byte y = (vIdx>1) ? constrain(vals[1],0,180) : 0;
   byte b = (vIdx>2) ? (vals[2] != 0 ? 1 : 0) : 0;
-
   Serial.print("Forwarding SPI: "); Serial.print(x); Serial.print(","); Serial.print(y); Serial.print(","); Serial.println(b);
   sendSPIPacket(x,y,b);
   bufPos = 0;
-}
-
-void loop() {
-  while (espSerial.available()) {
-    int c = espSerial.read();
-    if (c == '\n' || c == '\r') {
-      if (bufPos > 0) processBuffer();
-    } else {
-      if (bufPos < BUF_MAX-1) buf[bufPos++] = (char)c;
-    }
-  }
 }
 ```
 
@@ -257,13 +245,11 @@ Spiegazione:
 Versione robusta (posizionale servo su pin 3):
 ```arduino name=uno_r3_slave_fixed.ino
 /*
-  uno_r3_slave_simplified.ino
-  Semplice slave UNO R3:
-  - Riceve pacchetti SPI: 0xFF, X, Y, B
-  - Muove servo su pin 3 e scrive su LCD I2C (0x27)
+  Arduino UNO R3 - Slave
+  - Riceve 3 byte via Serial: X, Y, B
+  - Muove il servo (pin 3) usando X e mostra X,Y,B sul display I2C
 */
 
-#include <SPI.h>
 #include <Servo.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -271,56 +257,32 @@ Versione robusta (posizionale servo su pin 3):
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 Servo myservo;
 
-volatile bool gotStart = false;
-volatile uint8_t idx = 0;
-volatile uint8_t buf[3];
-volatile bool ready = false;
-
-ISR(SPI_STC_vect) {
-  uint8_t v = SPDR;
-  if (!gotStart) {
-    if (v == 0xFF) {
-      gotStart = true;
-      idx = 0;
-    }
-  } else {
-    if (idx < 3) {
-      buf[idx++] = v;
-      if (idx >= 3) {
-        ready = true;
-        gotStart = false;
-      }
-    } else {
-      gotStart = false;
-      idx = 0;
-    }
-  }
-}
-
 void setup() {
   Serial.begin(115200);
   myservo.attach(3);
-  myservo.write(90);
-  Wire.begin();
-  lcd.init(); lcd.backlight(); lcd.clear();
-  lcd.print("SPI slave ready");
+  myservo.write(90); // posizione iniziale
 
-  pinMode(MISO, OUTPUT);
-  pinMode(10, INPUT_PULLUP);
-  SPCR |= _BV(SPE) | _BV(SPIE);
-  sei();
+  Wire.begin();
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+  lcd.print("Ready (Serial)");
 }
 
 void loop() {
-  if (ready) {
-    noInterrupts();
-    uint8_t x = buf[0];
-    uint8_t y = buf[1];
-    uint8_t b = buf[2];
-    ready = false;
-    interrupts();
+  // Aspetta di avere almeno 3 byte: X, Y, B
+  if (Serial.available() >= 3) {
+    int x = Serial.read();
+    int y = Serial.read();
+    int b = Serial.read();
 
-    x = constrain(x,0,180);
+    // Semplice validazione di X
+    if(x < 0){
+      x = 0;
+    }
+    if(x > 180){
+      x = 180;
+    }
     myservo.write(x);
 
     lcd.clear();
@@ -328,11 +290,10 @@ void loop() {
     lcd.print("X:"); lcd.print(x);
     lcd.print(" Y:"); lcd.print(y);
     lcd.setCursor(0,1);
-    lcd.print("B:"); lcd.print((b!=0)?1:0);
-
-    Serial.print("Got SPI: "); Serial.print(x); Serial.print(","); Serial.print(y); Serial.print(","); Serial.println(b);
+    lcd.print("B:"); lcd.print((b != 0) ? 1 : 0);
+    Serial.print("Got: "); Serial.print(x); Serial.print(","); Serial.print(y); Serial.print(","); Serial.println(b);
   }
-  delay(5);
+  delay(10);
 }
 
 ```

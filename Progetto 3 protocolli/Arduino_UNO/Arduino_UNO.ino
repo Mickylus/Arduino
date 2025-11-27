@@ -1,15 +1,13 @@
 /*
-  uno_master_simplified.ino
-  Semplice master UNO:
-  - SoftwareSerial RX = D8 (ascolta ESP32 TX)
-  - Inoltra ogni linea ricevuta via SPI come pacchetto: 0xFF, X, Y, B
+  uno_master_simplified.ino (semplificato)
+  - Usa solo funzioni base: `setup`, `loop`, `Serial` e `SPI`
+  - Riceve una linea tramite `Serial` contenente numeri X, Y, B
+  - Inoltra i valori via SPI come pacchetto: 0xFF, X, Y, B
   - SPI pins standard: D11 MOSI, D12 MISO, D13 SCK, SS = D10
 */
-
 #include <SoftwareSerial.h>
 #include <SPI.h>
 
-SoftwareSerial espSerial(8, 9); // RX = D8, TX = D9 (non usato)
 const int SS_PIN = 10;
 const int BUF_MAX = 100;
 char buf[BUF_MAX];
@@ -17,11 +15,21 @@ int bufPos = 0;
 
 void setup() {
   Serial.begin(115200);
-  espSerial.begin(4800);
   SPI.begin();
   pinMode(SS_PIN, OUTPUT);
   digitalWrite(SS_PIN, HIGH);
-  Serial.println("UNO master simplified started (SoftwareSerial D8, SPI master)");
+  Serial.println("UNO master simplified started (Serial RX, SPI master)");
+}
+
+void loop() {
+  while (Serial.available()) {
+    int c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      if (bufPos > 0) processBuffer();
+    } else {
+      if (bufPos < BUF_MAX-1) buf[bufPos++] = (char)c;
+    }
+  }
 }
 
 void sendSPIPacket(byte x, byte y, byte b) {
@@ -40,7 +48,7 @@ void processBuffer() {
   s.trim();
   Serial.print("RX raw: "); Serial.println(s);
 
-  // Estrai numeri dalla stringa
+  // Estrai fino a 3 numeri dalla stringa
   int vals[3] = {0,0,0};
   int vIdx = 0;
   long cur = 0;
@@ -60,7 +68,6 @@ void processBuffer() {
   }
   if (inNum && vIdx < 3) vals[vIdx++] = (int)cur;
 
-  // Normalizza
   byte x = (vIdx>0) ? constrain(vals[0],0,180) : 0;
   byte y = (vIdx>1) ? constrain(vals[1],0,180) : 0;
   byte b = (vIdx>2) ? (vals[2] != 0 ? 1 : 0) : 0;
@@ -68,15 +75,4 @@ void processBuffer() {
   Serial.print("Forwarding SPI: "); Serial.print(x); Serial.print(","); Serial.print(y); Serial.print(","); Serial.println(b);
   sendSPIPacket(x,y,b);
   bufPos = 0;
-}
-
-void loop() {
-  while (espSerial.available()) {
-    int c = espSerial.read();
-    if (c == '\n' || c == '\r') {
-      if (bufPos > 0) processBuffer();
-    } else {
-      if (bufPos < BUF_MAX-1) buf[bufPos++] = (char)c;
-    }
-  }
 }
