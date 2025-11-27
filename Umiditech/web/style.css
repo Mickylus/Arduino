@@ -8,4 +8,9 @@ h1.titolo{
 	color: #12c3e3;
 	font-size: 4rem;
 	font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+	text-align: center;
+}
+#grafico{
+	width: 400;
+	height: 200;
 }
