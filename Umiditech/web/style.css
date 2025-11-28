@@ -1,8 +1,8 @@
 body{
-	background-image: url("immagini/blue_bg.jpg");
+	background: #ffffff;
 	background-attachment: fixed;
 	background-size: cover;
-	color: #ffffff;
+	color: #212020;
 }
 h1.titolo{
 	color: #12c3e3;
@@ -14,6 +14,15 @@ h1.titolo{
 	width: 400;
 	height: 200;
 }
+a{
+	color: #212020;
+	font-style: normal;
+	text-decoration: none;
+}
+a:hover{
+	color: #00ad9c;
+	font-size: 1rem;
+}
 var{
 	font-weight: bold;
 	font-style: normal;
@@ -21,7 +30,7 @@ var{
 #menu{
 	position: fixed;
 	top: 0; right: 0; left: 0;
-	background: #9dd0d983;
+	background: #9dd0d9ad;
 	font-family: Arial, Helvetica, sans-serif;
 	text-align: right;
 	height: 1rem;
