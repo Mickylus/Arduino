@@ -16,4 +16,15 @@ h1.titolo{
 }
 var{
 	font-weight: bold;
+	font-style: normal;
+}
+#menu{
+	position: fixed;
+	top: 0; right: 0; left: 0;
+	background: #9dd0d983;
+	font-family: Arial, Helvetica, sans-serif;
+	text-align: right;
+	height: 1rem;
+	padding: 1rem;
+	z-index: 99999;
 }
