@@ -16,10 +16,11 @@
 		<h1>Impostazioni WiFi</h1>
 		<form id="wifiForm" onsubmit="event.preventDefault(); salvaWifi();">
 			<label for="ssid">Nome rete (SSID)</label>
-			<input type="text" id="ssid" name="ssid" placeholder="UmidiTech">
-
+			<input type="text" id="ssid" name="ssid" placeholder="Nome WiFi">
+			<br>
 			<label for="password">Password</label>
-			<input type="password" id="password" name="password" laceholder="********">
+			<input type="password" id="password" name="password" placeholder="Password">
+			<br>
 			<button type="submit">Salva</button>
 			<span id="saveStatus" aria-live="polite"></span>
 		</form>

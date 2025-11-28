@@ -54,3 +54,20 @@ var{
 	box-shadow:0rem 0.3rem #0404040c;
 	z-index: 99999;
 }
+
+button,input{
+	background: #ffffff;
+	border-radius: 2rem;
+	padding-left: 1rem;
+	padding-right: 1rem;
+	border: 0.1rem solid #aeadad;
+	box-shadow:0.2rem 0.2rem #2120201d;
+}
+#wifiForm{
+	background: #ffffff;
+	border-radius: 2rem;
+	border: 0.1rem solid #aeadad;
+	box-shadow:0.2rem 0.2rem #2120201d;
+	padding:3rem;
+
+}
