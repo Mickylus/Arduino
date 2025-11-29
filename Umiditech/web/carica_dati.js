@@ -1,11 +1,14 @@
 async function caricaDati(){
 	try{
-		const risposta = await fetch("dati.json");
+		const risposta = await fetch("../dati.json");
 		const dati = await risposta.json();
 
-		document.getElementById("humidity").textContent = dati.umidita;
-		document.getElementById("temperature").textContent = dati.temperatura;
-		document.getElementById("volume").textContent = dati.volume;
+		const elH = document.getElementById("humidity");
+		const elT = document.getElementById("temperature");
+		const elV = document.getElementById("volume");
+		if(elH) elH.textContent = (dati.umidita !== undefined ? dati.umidita : '');
+		if(elT) elT.textContent = (dati.temperatura !== undefined ? dati.temperatura : '');
+		if(elV) elV.textContent = (dati.volume !== undefined ? dati.volume : '');
 
 
 		// Applica classi di stato ai valori invece di inline style (stessa logica soglie)
@@ -39,7 +42,8 @@ async function caricaDati(){
 		setColorByValue(document.getElementById('volume'), dati.volume, 'volume');
 	}catch(errore){
 		console.error("Errore nel leggere il JSON:", errore);
-        document.getElementById("valore").textContent = "Errore nel caricamento dati";
+		const valEl = document.getElementById("valore");
+		if(valEl) valEl.textContent = "Errore nel caricamento dati";
 	}
 }
 
@@ -52,3 +56,74 @@ async function aggiorna() {
 
 // Codice esguito
 aggiorna();
+
+// --- WiFi settings: load + save handlers ----------------------------------
+async function caricaWifi(){
+	try{
+		// prova a leggere wifi.json (server mappa /wifi.json -> /web/wifi.json)
+		const resp = await fetch('wifi.json');
+		if(!resp.ok) return; // nulla da fare
+		const w = await resp.json();
+		if(w.ssid) document.getElementById('ssid').value = w.ssid;
+		if(w.password) document.getElementById('password').value = w.password;
+	}catch(e){
+		console.warn('caricaWifi failed', e);
+	}
+}
+
+async function salvaWifi(evt){
+	if(evt && evt.preventDefault) evt.preventDefault();
+	const ssid = (document.getElementById('ssid')||{}).value || '';
+	const password = (document.getElementById('password')||{}).value || '';
+	const payload = { ssid: ssid, password: password };
+	const statusEl = document.getElementById('saveStatus');
+	if(statusEl) statusEl.textContent = 'Salvataggio...';
+
+	// Prova POST al server (ESP) su /wifi.json
+	try{
+		const resp = await fetch('/wifi.json', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		if(resp.ok){
+			if(statusEl) statusEl.textContent = 'Salvato sul dispositivo';
+			return;
+		}
+		// se risponde ma non ok, fallback
+		console.warn('Server responded', resp.status);
+	}catch(err){
+		console.warn('POST /wifi.json failed', err);
+	}
+
+	// Fallback: salva localmente come download (l'utente poi copia su SD)
+	try{
+		const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = 'wifi.json';
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+		URL.revokeObjectURL(url);
+		if(statusEl) statusEl.textContent = 'Download wifi.json creato (salvalo su SD)';
+		// Also store in localStorage as convenience
+		try{ localStorage.setItem('wifi.json', JSON.stringify(payload)); }catch(_){}
+	}catch(e){
+		console.error('Fallback save failed', e);
+		if(statusEl) statusEl.textContent = 'Errore nel salvataggio';
+	}
+}
+
+// Hook form on load
+try{
+	// If DOM already loaded, attach immediately, otherwise wait
+	const attach = ()=>{
+		const form = document.getElementById('settingsBox');
+		if(form) form.addEventListener('submit', salvaWifi);
+		caricaWifi();
+	};
+	if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
+	else attach();
+}catch(e){ console.warn('Could not attach settings handlers', e); }
