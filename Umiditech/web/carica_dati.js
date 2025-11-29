@@ -7,23 +7,30 @@ async function caricaDati(){
 		document.getElementById("temperature").textContent = dati.temperatura;
 		document.getElementById("volume").textContent = dati.volume;
 
-		// Colora il testo in base ai valori
+
+		// Applica classi di stato ai valori invece di inline style (stessa logica soglie)
+		function applyStatusClass(el, className){
+			if(!el) return;
+			el.classList.remove('status-red','status-amber','status-green','status-dark');
+			if(className) el.classList.add(className);
+		}
+
 		function setColorByValue(el, value, kind){
 			if(!el) return;
 			const v = Number(value);
-			if(isNaN(v)) { el.style.color = ''; return; }
+			if(isNaN(v)) { applyStatusClass(el, null); return; }
 			if(kind === 'humidity'){
-				if(v >= 65) el.style.color = '#b22222'; // rosso
-				else if(v >= 55) el.style.color = '#ff8c00'; // arancione
-				else el.style.color = '#006400'; // verde scuro
+				if(v >= 65) applyStatusClass(el, 'status-red'); // rosso
+				else if(v >= 55) applyStatusClass(el, 'status-amber'); // arancione
+				else applyStatusClass(el, 'status-green'); // verde scuro
 			} else if(kind === 'temperature'){
-				if(v >= 30) el.style.color = '#b22222';
-				else if(v >= 25) el.style.color = '#ff8c00';
-				else el.style.color = '#006400';
+				if(v >= 30) applyStatusClass(el, 'status-red');
+				else if(v >= 25) applyStatusClass(el, 'status-amber');
+				else applyStatusClass(el, 'status-green');
 			} else if(kind === 'volume'){
-				if(v >= 80) el.style.color = '#b22222';
-				else if(v >= 50) el.style.color = '#ff8c00';
-				else el.style.color = '#000000';
+				if(v >= 80) applyStatusClass(el, 'status-red');
+				else if(v >= 50) applyStatusClass(el, 'status-amber');
+				else applyStatusClass(el, 'status-dark');
 			}
 		}
 
