@@ -11,6 +11,7 @@
 #include <SPI.h>
 #include <SD.h>
 
+// pin lettore SD esterno
 #define MOSI_SD 15
 #define MISO_SD 2
 #define SCK_SD 14
